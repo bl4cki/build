@@ -88,6 +88,14 @@ fi
 
 case $BRANCH in
 
+	classic)
+		export KERNEL_MAJOR_MINOR="5.10" # Major and minor versions of this kernel.
+		KERNELBRANCH="branch:linux-5.10.y"
+		KERNELPATCHDIR='archive/rockchip64-5.10'
+		LINUXFAMILY=rockchip64
+		LINUXCONFIG='linux-rockchip64-classic'
+		;;
+
 	current)
 
 		export KERNEL_MAJOR_MINOR="5.15" # Major and minor versions of this kernel.
@@ -116,7 +124,7 @@ prepare_boot_configuration() {
 		ATFSOURCE='https://github.com/ARM-software/arm-trusted-firmware'
 		ATF_COMPILER='aarch64-linux-gnu-'
 		ATFDIR='arm-trusted-firmware'
-		ATFBRANCH='tag:v2.5'
+		ATFBRANCH='tag:v2.6'
 		ATF_USE_GCC='> 6.3'
 		ATF_TARGET_MAP="M0_CROSS_COMPILE=arm-linux-gnueabi- PLAT=$BOOT_SOC bl31;;build/$BOOT_SOC/release/bl31/bl31.elf:bl31.bin"
 		ATF_TOOLCHAIN2="arm-linux-gnueabi-:> 5.0"
@@ -289,8 +297,8 @@ family_tweaks_bsp() {
 		cat <<- EOF > "$destination"/etc/X11/xorg.conf.d/02-driver.conf
 			# set fbdev as default driver.
 			Section "Device"
-		         Identifier "NOGPU"
-		         Driver "fbdev"
+				Identifier "NOGPU"
+				Driver "fbdev"
 			EndSection
 		EOF
 	fi
