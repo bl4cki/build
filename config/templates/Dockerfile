@@ -33,6 +33,7 @@ RUN apt-get update \
        bison \
        btrfs-progs \
        build-essential \
+       busybox \
        ca-certificates \
        ccache \
        cpio \
@@ -50,6 +51,7 @@ RUN apt-get update \
        fakeroot \
        flex \
        gawk \
+       gcc-aarch64-linux-gnu \
        gcc-arm-linux-gnueabihf \
        gcc-arm-linux-gnueabi \
        gcc-arm-none-eabi \
@@ -82,6 +84,7 @@ RUN apt-get update \
        openssh-client \
        p7zip-full \
        parted \
+       parallel \
        patchutils \
        pigz \
        pixz \
@@ -94,13 +97,11 @@ RUN apt-get update \
        python3-distutils \
        python3-pkg-resources \
        python3-setuptools \
-       qemu \
        qemu-utils \
        qemu-user-static \
        rsync \
        swig \
        sudo \
-       systemd-container \
        tzdata \
        u-boot-tools \
        udev \

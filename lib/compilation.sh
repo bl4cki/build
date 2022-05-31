@@ -90,7 +90,7 @@ compile_atf()
 
 	atftempdir=$(mktemp -d)
 	chmod 700 ${atftempdir}
-	trap "rm -rf \"${atftempdir}\" ; exit 0" 0 1 2 3 15
+	trap "ret=\$?; rm -rf \"${atftempdir}\" ; exit \$ret" 0 1 2 3 15
 
 	# copy files to temp directory
 	for f in $target_files; do
@@ -161,7 +161,7 @@ compile_uboot()
 	# create directory structure for the .deb package
 	uboottempdir=$(mktemp -d)
 	chmod 700 ${uboottempdir}
-	trap "rm -rf \"${uboottempdir}\" ; exit 0" 0 1 2 3 15
+	trap "ret=\$?; rm -rf \"${uboottempdir}\" ; exit \$ret" 0 1 2 3 15
 	local uboot_name=${CHOSEN_UBOOT}_${REVISION}_${ARCH}
 	rm -rf $uboottempdir/$uboot_name
 	mkdir -p $uboottempdir/$uboot_name/usr/lib/{u-boot,$uboot_name} $uboottempdir/$uboot_name/DEBIAN
@@ -189,6 +189,7 @@ compile_uboot()
 
 		if [[ -n $ATFSOURCE ]]; then
 			cp -Rv "${atftempdir}"/*.bin .
+			cp -Rv "${atftempdir}"/*.elf .
 			rm -rf "${atftempdir}"
 		fi
 
@@ -328,7 +329,7 @@ create_linux-source_package ()
 	ts=$(date +%s)
 	local sources_pkg_dir tmp_src_dir
 	tmp_src_dir=$(mktemp -d)
-	trap "rm -rf \"${tmp_src_dir}\" ; exit 0" 0 1 2 3 15
+	trap "ret=\$?; rm -rf \"${tmp_src_dir}\" ; exit \$ret" 0 1 2 3 15
 	sources_pkg_dir=${tmp_src_dir}/${CHOSEN_KSRC}_${REVISION}_all
 	mkdir -p "${sources_pkg_dir}"/usr/src/ \
 		"${sources_pkg_dir}"/usr/share/doc/linux-source-${version}-${LINUXFAMILY} \
@@ -503,6 +504,7 @@ CUSTOM_KERNEL_CONFIG
 		${OUTPUT_VERYSILENT:+' >/dev/null 2>/dev/null'}
 
 	if [[ ${PIPESTATUS[0]} -ne 0 || ! -f arch/$ARCHITECTURE/boot/$KERNEL_IMAGE_TYPE ]]; then
+		grep -i error $DEST/${LOG_SUBPATH}/compilation.log
 		exit_with_error "Kernel was not built" "@host"
 	fi
 
@@ -569,13 +571,15 @@ CUSTOM_KERNEL_CONFIG
 	# hash origin
 	echo "${hash}" > "${HASHTARGET}.githash"
 
-	# hash_patches=
-	git -C $SRC log --format="%H" -1 -- \
-		$(realpath --relative-base="$SRC" "${SRC}/patch/kernel/${KERNELPATCHDIR}") >> "${HASHTARGET}.githash"
+	# hash_patches
+	CALC_PATCHES=$(git -C $SRC log --format="%H" -1 -- $(realpath --relative-base="$SRC" "${SRC}/patch/kernel/${KERNELPATCHDIR}"))
+	[[ -z "$CALC_PATCHES" ]] && CALC_PATCHES="null"
+	echo "$CALC_PATCHES" >> "${HASHTARGET}.githash"
 
-	# hash_kernel_config=
-	git -C $SRC log --format="%H" -1 -- \
-		$(realpath --relative-base="$SRC" "${SRC}/config/kernel/${LINUXCONFIG}.config")	>> "${HASHTARGET}.githash"
+	# hash_kernel_config
+	CALC_CONFIG=$(git -C $SRC log --format="%H" -1 -- $(realpath --relative-base="$SRC" "${SRC}/config/kernel/${LINUXCONFIG}.config"))
+	[[ -z "$CALC_CONFIG" ]] && CALC_CONFIG="null"
+	echo "$CALC_CONFIG" >> "${HASHTARGET}.githash"
 
 }
 
@@ -590,7 +594,7 @@ compile_firmware()
 
 	firmwaretempdir=$(mktemp -d)
 	chmod 700 ${firmwaretempdir}
-	trap "rm -rf \"${firmwaretempdir}\" ; exit 0" 0 1 2 3 15
+	trap "ret=\$?; rm -rf \"${firmwaretempdir}\" ; exit \$ret" 0 1 2 3 15
 	plugin_dir="armbian-firmware${FULL}"
 	mkdir -p "${firmwaretempdir}/${plugin_dir}/lib/firmware"
 
@@ -642,11 +646,11 @@ compile_armbian-zsh()
 	local tmp_dir armbian_zsh_dir
 	tmp_dir=$(mktemp -d)
 	chmod 700 ${tmp_dir}
-	trap "rm -rf \"${tmp_dir}\" ; exit 0" 0 1 2 3 15
+	trap "ret=\$?; rm -rf \"${tmp_dir}\" ; exit \$ret" 0 1 2 3 15
 	armbian_zsh_dir=armbian-zsh_${REVISION}_all
 	display_alert "Building deb" "armbian-zsh" "info"
 
-	fetch_from_repo "$GITHUB_SOURCE/robbyrussell/oh-my-zsh" "oh-my-zsh" "branch:master"
+	fetch_from_repo "$GITHUB_SOURCE/ohmyzsh/ohmyzsh" "oh-my-zsh" "branch:master"
 	fetch_from_repo "$GITHUB_SOURCE/mroth/evalcache" "evalcache" "branch:master"
 
 	mkdir -p "${tmp_dir}/${armbian_zsh_dir}"/{DEBIAN,etc/skel/,etc/oh-my-zsh/,/etc/skel/.oh-my-zsh/cache}
@@ -695,11 +699,8 @@ compile_armbian-zsh()
 	# define theme
 	sed -i 's/^ZSH_THEME=.*/ZSH_THEME="mrtazz"/' "${tmp_dir}/${armbian_zsh_dir}"/etc/skel/.zshrc
 
-	# disable prompt while update
-	sed -i 's/# DISABLE_UPDATE_PROMPT="true"/DISABLE_UPDATE_PROMPT="true"/g' "${tmp_dir}/${armbian_zsh_dir}"/etc/skel/.zshrc
-
 	# disable auto update since we provide update via package
-	sed -i 's/# DISABLE_AUTO_UPDATE="true"/DISABLE_AUTO_UPDATE="true"/g' "${tmp_dir}/${armbian_zsh_dir}"/etc/skel/.zshrc
+	sed -i "s/^# zstyle ':omz:update' mode disabled.*/zstyle ':omz:update' mode disabled/g" "${tmp_dir}/${armbian_zsh_dir}"/etc/skel/.zshrc
 
 	# define default plugins
 	sed -i 's/^plugins=.*/plugins=(evalcache git git-extras debian tmux screen history extract colorize web-search docker)/' "${tmp_dir}/${armbian_zsh_dir}"/etc/skel/.zshrc
@@ -721,7 +722,7 @@ compile_armbian-config()
 	local tmp_dir armbian_config_dir
 	tmp_dir=$(mktemp -d)
 	chmod 700 ${tmp_dir}
-	trap "rm -rf \"${tmp_dir}\" ; exit 0" 0 1 2 3 15
+	trap "ret=\$?; rm -rf \"${tmp_dir}\" ; exit \$ret" 0 1 2 3 15
 	armbian_config_dir=armbian-config_${REVISION}_all
 	display_alert "Building deb" "armbian-config" "info"
 
